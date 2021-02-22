@@ -12,6 +12,7 @@ import numpy as np
 import sounddevice as sd
 import keyboard  
 
+# Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 class spectogram(object):
 
     def __init__(self, fs, max_display_freq, stop = 'q', time_interval = 0.1, buffer_size =1, device=sd.default.device):
