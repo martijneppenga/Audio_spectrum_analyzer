@@ -8,6 +8,7 @@ import sys
 import time
 import threading
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
 import numpy as np
 import sounddevice as sd
 import keyboard  
@@ -53,6 +54,14 @@ class spectogram(object):
         self.ax1.set_xlabel('Time [s]')
         self.ax2.set_xlabel('Frequency [Hz]')
 
+        # create buttons
+        #self.fig.subplots_adjust(left=0.2)
+        self.ax_record = self.fig.add_axes([0.91, 0.05, 0.08, 0.075]) # left, bottom, width, height]
+        self.button_record = Button(self.ax_record , 'Record')
+        self.button_record.on_clicked(self.fcn_record)
+        self.button_record.color = 'red'
+        self.button_record.hovercolor = 'red'
+
         # create time and frequency x-axis
         self.time = np.arange(0, 1/fs*len(self.buffer), 1/fs)[0:len(self.buffer)]
         self.freq = np.fft.fftfreq(self.blocksize , 1/self.fs)[0:int(self.blocksize /2)]
@@ -65,16 +74,13 @@ class spectogram(object):
         self.ax1_plot_handle = self.ax1.plot(self.time, self.buffer)[0]
         self.ax2_plot_handle = self.ax2.plot(self.freq, np.abs(self.fft_data))[0]
 
-        # set plots to full screen
-        self.plt_set_fullscreen()
-        plt.show(block=False)
-
         # create audio recoding object
         self.stream = sd.InputStream(channels=1, callback=self.plot_data,
                         blocksize=int(fs * time_interval), samplerate=self.fs,
                         device = device)
         
         self.is_running = False
+        self.is_recoding = False
         self.figure_callback_pause = 0.01 if time_interval > 0.01 else time_interval
 
         
@@ -169,13 +175,34 @@ class spectogram(object):
         elif backend == 'GTK3Agg':
             mgr.window.maximize()
 
+    def fcn_record(self, event):
+        """
+        """
+        if self.is_running:
+            if self.is_recoding:
+                self.stream.stop()
+                self.button_record.color = 'red'
+                self.button_record.hovercolor = 'red'
+            else:
+                self.stream.start()
+                self.button_record.color = 'green'
+                self.button_record.hovercolor = 'green'
+            self.is_recoding = not self.is_recoding
+            self.fig.canvas.draw()
+
+            
+    
     def start(self):
         """
         Start recoding and displaying audio signal
         """
         print('Start recoding')
+        # set plots to full screen
+        self.plt_set_fullscreen()
+        plt.show(block=False)
+
         self.is_running = True
-        self.stream.start()
+        
         # start thread to terminate recoding
         # when specific key is pressed
         self.thread = threading.Thread(target=self.thread_function, daemon=True)
@@ -197,7 +224,8 @@ class spectogram(object):
         Close figure
         """
         print('Stop recoding')
-        self.stream.stop()
+        if self.is_recoding:
+            self.stream.stop()
         self.is_running = False
         plt.close(self.fig)
         # self.thread.join()
@@ -221,5 +249,5 @@ class spectogram(object):
             time.sleep(0.01)
     
 if __name__ == '__main__':
-    audio_analyzer = spectogram(8000, 1000, buffer_size=5, time_interval=0.1)
+    audio_analyzer = spectogram(44100, 20000, buffer_size=5, time_interval=0.1)
     audio_analyzer.start()
